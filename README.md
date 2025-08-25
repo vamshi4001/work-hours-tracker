@@ -2,6 +2,10 @@
 
 A clean, modern web application for tracking work hours with weekly and monthly views. Built with Next.js, TypeScript, and IndexedDB for local data persistence.
 
+![Work Hours Tracker Screenshot](public/hours-tracker.png)
+
+*Monthly view showing the intuitive calendar interface with hours tracking and automatic totals*
+
 ## Features
 
 ### 📅 Dual View Modes
