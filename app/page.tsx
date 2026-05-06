@@ -14,6 +14,18 @@ export const metadata: Metadata = {
     description:
       'Bookmark and open it weekly or monthly to log hours. Weekly and monthly views, autosave, 100% local storage.',
     url: '/',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1024,
+        height: 553,
+        alt: 'WorkHours.fun — Work Hours Tracker landing page',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    images: ['/og-image.png'],
   },
 };
 
@@ -66,6 +78,7 @@ export default function HomePage() {
       priceCurrency: 'USD',
     },
     url: site,
+    image: `${site}/og-image.png`,
   };
 
   return (
@@ -90,10 +103,22 @@ export default function HomePage() {
         />
 
         <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-6 sm:px-6 lg:px-8">
-          <Link href="/" className="font-display text-xl font-bold tracking-tight text-violet-950 sm:text-2xl">
-            WorkHours
-            <span className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-cyan-600 bg-clip-text text-transparent">
-              .fun
+          <Link
+            href="/"
+            className="font-display flex items-center gap-2 text-xl font-bold tracking-tight text-violet-950 sm:gap-3 sm:text-2xl"
+          >
+            <img
+              src="/logo-whf.svg"
+              alt=""
+              width={40}
+              height={40}
+              className="h-9 w-9 shrink-0 rounded-lg sm:h-10 sm:w-10"
+            />
+            <span>
+              WorkHours
+              <span className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-cyan-600 bg-clip-text text-transparent">
+                .fun
+              </span>
             </span>
           </Link>
           <Link

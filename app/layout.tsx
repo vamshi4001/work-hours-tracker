@@ -46,6 +46,13 @@ export const metadata: Metadata = {
   creator: 'Vamshi',
   publisher: 'Vamshi',
   robots: { index: true, follow: true },
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon-32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
   openGraph: {
     title: 'Work Hours Tracker — Free Browser-Based Timesheet',
     description:
@@ -57,9 +64,9 @@ export const metadata: Metadata = {
     images: [
       {
         url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'Work Hours Tracker — weekly and monthly timesheet views',
+        width: 1024,
+        height: 553,
+        alt: 'WorkHours.fun — Work Hours Tracker landing page: track your hours in the browser',
       },
     ],
   },
@@ -68,7 +75,14 @@ export const metadata: Metadata = {
     title: 'Work Hours Tracker — Free Browser-Based Timesheet',
     description:
       'Bookmark it and log hours weekly or monthly. Weekly & monthly views, autosave—your data never leaves this browser.',
-    images: ['/og-image.png'],
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1024,
+        height: 553,
+        alt: 'WorkHours.fun — Work Hours Tracker landing page',
+      },
+    ],
   },
   manifest: '/manifest.json',
   category: 'productivity',
