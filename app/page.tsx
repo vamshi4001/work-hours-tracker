@@ -1,480 +1,266 @@
-'use client';
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { getSiteUrl } from '../lib/site';
 
-import { useState, useEffect, useRef } from 'react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isWeekend, parseISO, getDay, startOfWeek, endOfWeek, addWeeks, subWeeks } from 'date-fns';
-import { hoursDB } from '../lib/indexedDB';
-
-type WeekData = {
-  [key: string]: string;
+export const metadata: Metadata = {
+  title: 'Work Hours Tracker — Free Browser-Based Timesheet',
+  description:
+    'No company time tool? Bookmark this page and use it every week or month to track your hours. Everything stays in your browser on this device—no cloud, no login.',
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: 'Work Hours Tracker — Free Browser-Based Timesheet',
+    description:
+      'Bookmark and open it weekly or monthly to log hours. Weekly and monthly views, autosave, 100% local storage.',
+    url: '/',
+  },
 };
 
-export default function HoursTracker() {
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
-  const [currentWeek, setCurrentWeek] = useState<Date>(new Date());
-  const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('monthly');
-  const [weeks, setWeeks] = useState<WeekData[]>([]);
-  const [monthTotal, setMonthTotal] = useState(0);
-  const [monthData, setMonthData] = useState<{ [key: string]: string }>({});
+const perks = [
+  {
+    emoji: '🎉',
+    title: 'Zero signup theater',
+    body: 'Jump in and start typing—no accounts, no “verify your email” boss battles.',
+    bubble: 'from-violet-400 to-fuchsia-500',
+  },
+  {
+    emoji: '🔒',
+    title: 'Your browser is the vault',
+    body: 'Hours live in IndexedDB on this machine only—not our servers, not anywhere else.',
+    bubble: 'from-cyan-400 to-blue-500',
+  },
+  {
+    emoji: '📱',
+    title: 'This device, this browser',
+    body: 'No magic sync across phones or laptops—by design. What you enter here stays here.',
+    bubble: 'from-amber-400 to-orange-500',
+  },
+  {
+    emoji: '✨',
+    title: 'Free & open source',
+    body: 'MIT-licensed—fork it, share it, make it yours.',
+    bubble: 'from-pink-400 to-rose-500',
+  },
+];
 
-  // Load data from IndexedDB
-  useEffect(() => {
-    const loadMonthData = async () => {
-      const dateToUse = viewMode === 'weekly' ? currentWeek : currentMonth;
-      const monthKey = format(dateToUse, 'yyyy-MM');
-      try {
-        const savedData = await hoursDB.getMonthData(monthKey);
-        if (savedData) {
-          setMonthData(savedData);
-        } else {
-          setMonthData({});
-        }
-      } catch (error) {
-        console.error('Error loading data:', error);
-        setMonthData({});
-      }
-    };
-    loadMonthData();
-  }, [currentMonth, currentWeek, viewMode]);
+const steps = [
+  { step: '1', title: 'Pick your view', text: 'Monthly grid or a focused weekly lane—toggle anytime.' },
+  { step: '2', title: 'Tap the weekdays', text: 'Type hours like 8, 7.5, or 6.25—tab between cells like a pro.' },
+  { step: '3', title: 'Auto-save', text: 'Totals update live; everything saves as you go. Weekends are grayed out.' },
+];
 
-  // Initialize weeks data
-  useEffect(() => {
-    let weeksData: WeekData[] = [];
-    
-    if (viewMode === 'weekly') {
-      // Weekly view - show just current week
-      const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 }); // Monday
-      const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 }); // Sunday
-      const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
-      
-      const week: WeekData = {};
-      weekDays.forEach(day => {
-        const dayKey = format(day, 'yyyy-MM-dd');
-        week[dayKey] = monthData[dayKey] || '';
-      });
-      
-      weeksData = [week];
-    } else {
-      // Monthly view - existing logic
-      const startDate = startOfMonth(currentMonth);
-      const endDate = endOfMonth(currentMonth);
-      
-      // Get the first Monday of the calendar (might be from previous month)
-      const firstDay = new Date(startDate);
-      const dayOfWeek = getDay(firstDay);
-      const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday = 0
-      firstDay.setDate(firstDay.getDate() - daysToSubtract);
-      
-      // Get the last Sunday of the calendar (might be from next month)
-      const lastDay = new Date(endDate);
-      const lastDayOfWeek = getDay(lastDay);
-      const daysToAdd = lastDayOfWeek === 0 ? 0 : 7 - lastDayOfWeek;
-      lastDay.setDate(lastDay.getDate() + daysToAdd);
-      
-      const allDays = eachDayOfInterval({ start: firstDay, end: lastDay });
-      
-      // Group days by week (Monday to Sunday)
-      for (let i = 0; i < allDays.length; i += 7) {
-        const weekDays = allDays.slice(i, i + 7);
-        const week: WeekData = {};
-        
-        weekDays.forEach(day => {
-          const dayKey = format(day, 'yyyy-MM-dd');
-          week[dayKey] = monthData[dayKey] || '';
-        });
-        
-        weeksData.push(week);
-      }
-    }
-    
-    setWeeks(weeksData);
-    calculateMonthTotal(weeksData);
-  }, [currentMonth, currentWeek, monthData, viewMode]);
-
-  const calculateWeekTotal = (week: WeekData) => {
-    return Object.values(week).reduce((sum, hours) => {
-      return sum + (parseFloat(hours) || 0);
-    }, 0);
-  };
-
-  const calculateMonthTotal = (weeksData: WeekData[]) => {
-    const total = weeksData.reduce((sum, week) => {
-      return sum + calculateWeekTotal(week);
-    }, 0);
-    setMonthTotal(total);
-  };
-
-  const saveData = async (newData: { [key: string]: string }) => {
-    const dateToUse = viewMode === 'weekly' ? currentWeek : currentMonth;
-    const monthKey = format(dateToUse, 'yyyy-MM');
-    try {
-      await hoursDB.saveMonthData(monthKey, newData);
-    } catch (error) {
-      console.error('Error saving data:', error);
-    }
-  };
-
-  const handleInputChange = async (day: string, value: string) => {
-    // Allow only numbers and one decimal point
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
-      const newMonthData = { ...monthData, [day]: value };
-      setMonthData(newMonthData);
-      await saveData(newMonthData);
-    }
-  };
-
-  const nextPeriod = () => {
-    if (viewMode === 'weekly') {
-      setCurrentWeek(addWeeks(currentWeek, 1));
-    } else {
-      setCurrentMonth(addMonths(currentMonth, 1));
-    }
-  };
-
-  const prevPeriod = () => {
-    if (viewMode === 'weekly') {
-      setCurrentWeek(subWeeks(currentWeek, 1));
-    } else {
-      setCurrentMonth(subMonths(currentMonth, 1));
-    }
-  };
-
-  const getDisplayTitle = () => {
-    if (viewMode === 'weekly') {
-      const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 1 });
-      return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
-    } else {
-      return format(currentMonth, 'MMMM yyyy');
-    }
-  };
-
-  const renderDayHeader = (day: string) => {
-    const date = parseISO(day);
-    const isCurrentMonth = isSameMonth(date, currentMonth);
-    
-    return (
-      <th key={day} style={{
-        padding: '12px',
-        textAlign: 'center',
-        border: '1px solid #d1d5db',
-        backgroundColor: '#f9fafb',
-        fontWeight: '500',
-        fontSize: '14px',
-        color: !isCurrentMonth ? '#9ca3af' : '#374151'
-      }}>
-        <div style={{ fontWeight: '600' }}>{format(date, 'EEE')}</div>
-        <div style={{ fontSize: '12px' }}>{format(date, 'MM/dd')}</div>
-      </th>
-    );
-  };
-
-  const renderCell = (week: WeekData, weekIndex: number, day: string) => {
-    const date = parseISO(day);
-    const isWeekendDay = isWeekend(date);
-    const referenceDate = viewMode === 'weekly' ? currentWeek : currentMonth;
-    const isCurrentPeriod = viewMode === 'weekly' ? true : isSameMonth(date, currentMonth);
-    const isEditable = !isWeekendDay && isCurrentPeriod;
-    const value = week[day] || '';
-    const dayNumber = format(date, 'd');
-
-    // Simple input for editable weekday cells
-    if (isEditable) {
-      return (
-        <td key={day} style={{
-          padding: '4px',
-          border: '1px solid #d1d5db',
-          backgroundColor: '#ffffff',
-          minWidth: '80px',
-          height: '60px',
-          position: 'relative'
-        }}>
-          <div style={{
-            position: 'absolute',
-            top: '2px',
-            left: '4px',
-            fontSize: '10px',
-            color: '#6b7280',
-            fontWeight: '500'
-          }}>
-            {dayNumber}
-          </div>
-          <input
-            type="text"
-            value={value}
-            onChange={(e) => handleInputChange(day, e.target.value)}
-            style={{
-              width: '100%',
-              height: '100%',
-              textAlign: 'center',
-              backgroundColor: 'transparent',
-              border: 'none',
-              outline: 'none',
-              fontSize: '18px',
-              fontWeight: '700',
-              color: '#1e40af',
-              paddingTop: '12px'
-            }}
-            placeholder="0"
-          />
-        </td>
-      );
-    }
-
-    // Non-editable cells (weekends, other months)
-    return (
-      <td
-        key={day}
-        style={{
-          padding: '4px',
-          textAlign: 'center',
-          border: '1px solid #d1d5db',
-          minWidth: '80px',
-          height: '60px',
-          backgroundColor: isWeekendDay ? '#f3f4f6' : '#f9fafb',
-          color: isWeekendDay ? '#9ca3af' : '#6b7280',
-          position: 'relative'
-        }}
-      >
-        <div style={{
-          position: 'absolute',
-          top: '2px',
-          left: '4px',
-          fontSize: '10px',
-          color: '#9ca3af',
-          fontWeight: '500'
-        }}>
-          {dayNumber}
-        </div>
-        <div style={{ 
-          fontWeight: '700',
-          fontSize: '18px',
-          color: '#1e40af',
-          paddingTop: '12px'
-        }}>
-          {value || ''}
-        </div>
-      </td>
-    );
+export default function HomePage() {
+  const site = getSiteUrl();
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Work Hours Tracker',
+    description:
+      'Free browser-based work hours tracker with weekly and monthly calendar views. Data stored locally in the user\'s browser (IndexedDB); no cross-device persistence.',
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web Browser',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+    url: site,
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: '#f8fafc',
-      padding: '32px 16px',
-      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    }}>
-      <div style={{
-        maxWidth: '1200px',
-        margin: '0 auto'
-      }}>
-        {/* Header */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '32px',
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-          padding: '24px'
-        }}>
-          <button 
-            onClick={prevPeriod}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: '#2563eb',
-              color: '#ffffff',
-              borderRadius: '8px',
-              border: 'none',
-              fontWeight: '500',
-              cursor: 'pointer',
-              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-              transition: 'background-color 0.15s ease-in-out'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
+      <div className="relative min-h-screen overflow-hidden">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -left-32 top-20 h-72 w-72 rounded-full bg-fuchsia-300/50 blur-3xl"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-24 top-40 h-96 w-96 rounded-full bg-cyan-300/40 blur-3xl"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute bottom-0 left-1/2 h-80 w-[120%] -translate-x-1/2 translate-y-1/3 rounded-[50%] bg-violet-200/60 blur-3xl"
+        />
+
+        <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-6 sm:px-6 lg:px-8">
+          <Link href="/" className="font-display text-xl font-bold tracking-tight text-violet-950 sm:text-2xl">
+            WorkHours
+            <span className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-cyan-600 bg-clip-text text-transparent">
+              .fun
+            </span>
+          </Link>
+          <Link
+            href="/tracker"
+            className="rounded-full bg-gradient-to-r from-violet-700 to-violet-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-600/25 transition hover:scale-105 hover:from-violet-800 hover:to-violet-600 hover:shadow-xl active:scale-100"
           >
-            ← Previous
-          </button>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              display: 'flex',
-              backgroundColor: '#f3f4f6',
-              borderRadius: '8px',
-              padding: '4px'
-            }}>
-              <button
-                onClick={() => setViewMode('monthly')}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: viewMode === 'monthly' ? '#2563eb' : 'transparent',
-                  color: viewMode === 'monthly' ? '#ffffff' : '#6b7280',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                Monthly
-              </button>
-              <button
-                onClick={() => setViewMode('weekly')}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: viewMode === 'weekly' ? '#2563eb' : 'transparent',
-                  color: viewMode === 'weekly' ? '#ffffff' : '#6b7280',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                Weekly
-              </button>
-            </div>
-            <h1 style={{
-              fontSize: '30px',
-              fontWeight: '700',
-              color: '#1f2937',
-              margin: '0'
-            }}>
-              {getDisplayTitle()}
+            Open tracker
+          </Link>
+        </header>
+
+        <main className="relative z-10 mx-auto max-w-6xl px-4 pb-24 sm:px-6 lg:px-8">
+          <section className="pt-4 pb-16 text-center sm:pt-8 sm:pb-20">
+            <p className="mb-4 inline-flex flex-wrap items-center justify-center gap-2 font-sans text-sm font-semibold text-violet-900/80">
+              <span className="rounded-full bg-white/80 px-3 py-1 shadow-sm ring-1 ring-violet-100">
+                First job? Freelance? Just exploring?
+              </span>
+              <span className="rounded-full bg-white/80 px-3 py-1 shadow-sm ring-1 ring-fuchsia-100">
+                Timesheet zone: activated
+              </span>
+            </p>
+
+            <h1 className="font-display text-4xl font-bold leading-[1.1] tracking-tight text-slate-900 sm:text-6xl lg:text-7xl">
+              Track your hours.
+              <br />
+              <span className="bg-gradient-to-r from-violet-600 via-fuchsia-500 to-cyan-500 bg-clip-text text-transparent">
+                Right in your browser.
+              </span>
             </h1>
-          </div>
-          
-          <button 
-            onClick={nextPeriod}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: '#2563eb',
-              color: '#ffffff',
-              borderRadius: '8px',
-              border: 'none',
-              fontWeight: '500',
-              cursor: 'pointer',
-              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-              transition: 'background-color 0.15s ease-in-out'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+
+            <div className="mx-auto mt-6 max-w-2xl space-y-4 text-lg leading-relaxed text-slate-600 sm:text-xl">
+              <p>
+                If your
+                {' '}
+                <strong className="text-slate-800">employer</strong>
+                ,
+                {' '}
+                <strong className="text-slate-800">vendor</strong>
+                , or
+                {' '}
+                <strong className="text-slate-800">client</strong>
+                {' '}
+                does not hand you a time-tracking tool, use this for
+                {' '}
+                <em>your</em>
+                {' '}
+                own records.
+              </p>
+              <p>
+                <strong className="text-slate-800">Bookmark this page</strong>
+                {' '}
+                and open it each week or month to log your hours. Clear totals, no accounts, no clutter.
+              </p>
+            </div>
+
+            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
+              <Link
+                href="/tracker"
+                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-violet-700 to-violet-500 px-10 py-4 text-lg font-bold text-white shadow-xl shadow-violet-600/30 transition hover:scale-[1.03] hover:from-violet-800 hover:to-violet-600 active:scale-100"
+              >
+                Start tracking — it&apos;s free
+              </Link>
+              <a
+                href="#how-it-works"
+                className="text-base font-semibold text-violet-700 underline decoration-dotted decoration-2 underline-offset-4 hover:text-violet-900"
+              >
+                How does this even work?
+              </a>
+            </div>
+          </section>
+
+          <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {perks.map((item) => (
+              <article
+                key={item.title}
+                className="relative overflow-hidden rounded-3xl border border-white/60 bg-white/70 p-6 shadow-lg shadow-violet-200/40 backdrop-blur"
+              >
+                <div
+                  className={`mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${item.bubble} text-2xl shadow-md`}
+                >
+                  {item.emoji}
+                </div>
+                <h2 className="font-display text-xl font-bold text-slate-900">{item.title}</h2>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">{item.body}</p>
+              </article>
+            ))}
+          </section>
+
+          <section
+            id="how-it-works"
+            className="mt-20 scroll-mt-24 rounded-[2rem] border border-violet-100 bg-gradient-to-br from-white via-violet-50/80 to-cyan-50/80 p-8 shadow-xl sm:p-12"
           >
-            Next →
-          </button>
-        </div>
+            <h2 className="font-display text-center text-3xl font-bold text-slate-900 sm:text-4xl">
+              How it works
+              <span className="text-fuchsia-600"> (the short version)</span>
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-center text-slate-600">
+              Three quick steps from “I guess I should log hours” to “okay, I actually know what I worked.”
+            </p>
+            <ol className="mt-12 grid gap-8 sm:grid-cols-3">
+              {steps.map((s) => (
+                <li key={s.step} className="relative flex flex-col items-center text-center">
+                  <span className="font-display mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-2xl font-black text-white shadow-lg">
+                    {s.step}
+                  </span>
+                  <h3 className="font-display text-lg font-bold text-slate-900">{s.title}</h3>
+                  <p className="mt-2 text-sm text-slate-600">{s.text}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
 
-        {/* Calendar Table */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-          overflow: 'hidden'
-        }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{
-              width: '100%',
-              borderCollapse: 'collapse'
-            }}>
-              <thead>
-                <tr>
-                  {weeks[0] && 
-                    Object.keys(weeks[0]).map(day => 
-                      renderDayHeader(day)
-                    )
-                  }
-                  <th style={{
-                    padding: '12px',
-                    textAlign: 'center',
-                    border: '1px solid #d1d5db',
-                    backgroundColor: '#dbeafe',
-                    fontWeight: '600',
-                    color: '#1e40af'
-                  }}>
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {weeks.map((week, weekIndex) => (
-                  <tr key={weekIndex}>
-                    {Object.keys(week).map(day => 
-                      renderCell(week, weekIndex, day)
-                    )}
-                    <td style={{
-                      padding: '12px',
-                      textAlign: 'center',
-                      border: '1px solid #d1d5db',
-                      backgroundColor: '#dbeafe',
-                      fontWeight: '700',
-                      color: '#1e40af'
-                    }}>
-                      {calculateWeekTotal(week).toFixed(1)}
-                    </td>
-                  </tr>
-                ))}
-                <tr>
-                  <td 
-                    colSpan={weeks[0] ? Object.keys(weeks[0]).length : 1} 
-                    style={{
-                      padding: '16px 12px',
-                      textAlign: 'right',
-                      paddingRight: '16px',
-                      fontWeight: '700',
-                      color: '#374151',
-                      border: '1px solid #d1d5db',
-                      backgroundColor: '#f9fafb'
-                    }}
-                  >
-                    {viewMode === 'weekly' ? 'Week' : 'Month'} Total:
-                  </td>
-                  <td style={{
-                    padding: '16px 12px',
-                    textAlign: 'center',
-                    border: '1px solid #d1d5db',
-                    backgroundColor: '#dcfce7',
-                    fontWeight: '700',
-                    color: '#166534',
-                    fontSize: '18px'
-                  }}>
-                    {monthTotal.toFixed(1)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+          <section className="mt-20 rounded-[2rem] border-2 border-dashed border-violet-300 bg-white/90 p-8 shadow-inner sm:p-12">
+            <div className="mx-auto max-w-3xl text-center">
+              <span className="font-display text-sm font-bold uppercase tracking-widest text-violet-600">
+                Privacy, but make it loud
+              </span>
+              <h2 className="font-display mt-3 text-3xl font-black text-slate-900 sm:text-4xl">
+                Your data. Your browser.
+                <span className="text-fuchsia-600"> Period.</span>
+              </h2>
+              <p className="mt-4 text-lg leading-relaxed text-slate-600">
+                Everything is stored with
+                {' '}
+                <strong className="text-slate-800">IndexedDB</strong>
+                —think of it as a tiny database living inside
+                {' '}
+                <em>this</em>
+                {' '}
+                browser on
+                {' '}
+                <em>this</em>
+                {' '}
+                device. Bookmark this site and use it on a weekly or monthly rhythm—your entries stay put on this machine. Open it on another laptop or phone?
+                {' '}
+                <strong className="text-slate-800">Fresh start</strong>
+                —that&apos;s not a bug; there&apos;s no account syncing your life to the cloud.
+              </p>
+              <Link
+                href="/tracker"
+                className="mt-10 inline-flex rounded-full bg-gradient-to-r from-violet-700 to-violet-500 px-8 py-3 font-display text-base font-bold text-white shadow-lg shadow-violet-600/25 transition hover:from-violet-800 hover:to-violet-600"
+              >
+                Alright, let me at the grid →
+              </Link>
+            </div>
+          </section>
 
-        {/* Instructions */}
-        <div style={{
-          marginTop: '24px',
-          backgroundColor: '#eff6ff',
-          borderRadius: '12px',
-          padding: '16px'
-        }}>
-          <h3 style={{
-            fontWeight: '600',
-            color: '#1e40af',
-            marginBottom: '8px',
-            marginTop: '0'
-          }}>How to use:</h3>
-          <ul style={{
-            color: '#1e40af',
-            fontSize: '14px',
-            lineHeight: '1.5',
-            margin: '0',
-            paddingLeft: '16px'
-          }}>
-            <li>• Switch between Weekly and Monthly views using the toggle</li>
-            <li>• Type numbers directly in weekday cells</li>
-            <li>• Use Tab to move between cells</li>
-            <li>• Data is automatically saved as you type</li>
-            <li>• Weekends are disabled (grayed out)</li>
-          </ul>
-        </div>
+          <footer className="mt-16 border-t border-violet-100 pt-10 text-center text-sm text-slate-500">
+            <p className="font-display font-semibold text-slate-700">
+              Work Hours Tracker — free, local, private.
+            </p>
+            <p className="mt-2">
+              Built with Next.js — see
+              {' '}
+              <a
+                href="https://github.com/vamshi4001/work-hours-tracker"
+                className="font-medium text-violet-600 hover:underline"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                GitHub
+              </a>
+              {' '}
+              for source &amp; license.
+            </p>
+          </footer>
+        </main>
       </div>
-    </div>
+    </>
   );
 }

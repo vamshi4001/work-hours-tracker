@@ -1,42 +1,84 @@
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import type { Metadata, Viewport } from 'next';
+import { Inter, Space_Grotesk } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
+import { getSiteUrl } from '../lib/site';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-space-grotesk',
+  display: 'swap',
+});
+
+const GA_ID = 'G-2WJNDRV8W2';
+
+const siteUrl = getSiteUrl();
 
 export const metadata: Metadata = {
-  title: 'Work Hours Tracker - Free Time Tracking App',
-  description: 'Free, open-source work hours tracker with weekly and monthly views. Track your time locally in your browser with no sign-up required. Perfect for freelancers, contractors, and professionals.',
-  keywords: 'hours tracker, time tracking, work hours, timesheet, freelancer tools, productivity, weekly tracker, monthly tracker, open source',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: 'Work Hours Tracker — Free Browser-Based Timesheet',
+    template: '%s | Work Hours Tracker',
+  },
+  description:
+    'No company timesheet? Bookmark this page and use it weekly or monthly to track hours—fast, private, and local. Ideal when your employer, vendor, or client does not provide a time-tracking tool.',
+  keywords: [
+    'hours tracker',
+    'timesheet',
+    'work hours',
+    'time tracking',
+    'browser timesheet',
+    'freelancer',
+    'contractor',
+    'IndexedDB',
+    'local storage',
+    'privacy',
+    'no login',
+    'open source',
+  ],
   authors: [{ name: 'Vamshi' }],
   creator: 'Vamshi',
   publisher: 'Vamshi',
-  robots: 'index, follow',
+  robots: { index: true, follow: true },
   openGraph: {
-    title: 'Work Hours Tracker - Free Time Tracking App',
-    description: 'Free, open-source work hours tracker with weekly and monthly views. Track your time locally in your browser with no sign-up required.',
+    title: 'Work Hours Tracker — Free Browser-Based Timesheet',
+    description:
+      'Track your hours when your employer, vendor, or client does not give you a tool. Data stays in your browser—no accounts, no servers.',
     type: 'website',
     locale: 'en_US',
-    url: 'https://github.com/vamshi4001/work-hours-tracker',
+    url: '/',
     siteName: 'Work Hours Tracker',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Work Hours Tracker - Free Time Tracking App',
+        alt: 'Work Hours Tracker — weekly and monthly timesheet views',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Work Hours Tracker - Free Time Tracking App',
-    description: 'Free, open-source work hours tracker with weekly and monthly views. Track your time locally in your browser.',
+    title: 'Work Hours Tracker — Free Browser-Based Timesheet',
+    description:
+      'Bookmark it and log hours weekly or monthly. Weekly & monthly views, autosave—your data never leaves this browser.',
     images: ['/og-image.png'],
   },
-  viewport: 'width=device-width, initial-scale=1',
-  themeColor: '#2563eb',
   manifest: '/manifest.json',
+  category: 'productivity',
+  applicationName: 'Work Hours Tracker',
+};
+
+export const viewport: Viewport = {
+  themeColor: '#8b5cf6',
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -45,8 +87,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} min-h-screen bg-gray-50 dark:bg-gray-900`}>
+    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable}`}>
+      <body className="min-h-screen bg-[#faf5ff] font-sans text-slate-900 antialiased">
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_ID}');
+          `}
+        </Script>
         {children}
       </body>
     </html>
